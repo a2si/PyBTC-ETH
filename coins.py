@@ -10,37 +10,37 @@ from sha3 import keccak_256
 
 
 class Bitcoin:
-    def __ripemd160(self, x):
+    def __ripemd160(self, x: bytes):
         d = new('ripemd160')
         d.update(x)
 
         return d
 
-    def valid(self, a):
+    def valid(self, address: str) -> bool:
         bad = ['0', 'O', 'I']
 
-        if len(a) == 26 or len(a) == 34:
-            if a.startswith('1') or a.startswith('3'):
-                if [s for s in a if s in bad]:
-                    return False
-                else:
-                    return True
-            else:
-                return False
-        else:
+        if len(address) != 26 and len(address) != 34:
+            return False
+        elif not address.startswith('1') and not address.startswith('3'):
+            return False
+        elif [s for s in address if s in bad]:
             return False
 
-    def balance(self, a):
-        if not self.valid(a):
+        return True
+
+    def balance(self, address: str) -> float:
+        if not self.valid(address):
             raise TypeError
 
-        a = (
-            get(f'https://blockchain.info/rawaddr/{a}').json()
-        )['final_balance']
+        stat: dict = (
+            get(f'https://blockstream.info/api/address/{address}').json()
+        )['chain_stats']
 
-        return a/(10**8)
+        balance: int = stat['funded_txo_sum']-stat['spent_txo_sum']
 
-    def gen(self):
+        return balance/(10**8)
+
+    def gen(self) -> tuple:
         priv_key = urandom(32)
         fullkey = '80' + hexlify(priv_key).decode()
 
@@ -70,7 +70,7 @@ class Bitcoin:
 
 
 class Ethereum:
-    def __addr(self, addr_str):
+    def __addr(self, addr_str: str) -> str:
         out = ''
         keccak = keccak_256()
 
@@ -86,26 +86,26 @@ class Ethereum:
 
         return '0x' + out
 
-    def valid(self, a):
-        if not a.startswith('0x'):
+    def valid(self, address: str) -> bool:
+        if not address.startswith('0x'):
             return False
-        elif not self.__addr(a) == a:
+        elif not self.__addr(address) == address:
             return False
-        else:
-            return True
 
-    def balance(self, a):
-        if not self.valid(a):
+        return True
+
+    def balance(self, address: str) -> float:
+        if not self.valid(address):
             raise TypeError
 
-        a = (
+        balance: int = (
             get('https://api.etherscan.io/api?module=account&action=' +
-                f'balance&address={a}').json()
+                f'balance&address={address}').json()
         )['result']
 
-        return int(a)/(10**18)
+        return int(balance)/(10**18)
 
-    def gen(self):
+    def gen(self) -> tuple:
         keccak = keccak_256()
 
         priv = SigningKey.generate(curve=SECP256k1)
